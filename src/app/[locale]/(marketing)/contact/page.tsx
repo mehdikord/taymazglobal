@@ -1,49 +1,33 @@
+import { ArrowUpRight, Mail, MessageCircle, PhoneCall, Send, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
-import { Clock, Mail, MapPin, Phone } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { ReactNode } from "react";
 
+import { ContactOffices } from "@/components/contact/contact-offices";
 import { ContactForm } from "@/components/forms/contact-form";
-import { PageHero } from "@/components/shared/page-hero";
-import { Card, CardContent } from "@/components/ui/card";
+import { LinkedinIcon } from "@/components/icons/linkedin-icon";
+import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import type { AppLocale } from "@/i18n/routing";
+import { lookupCity } from "@/lib/geo/cities";
+import { buildDotsPath, createProjection, fitDotMap } from "@/lib/geo/dot-map";
 import { getLocalizedText } from "@/lib/i18n/get-localized-text";
 import { getOffices } from "@/lib/repositories/offices";
+import { getSiteSettings } from "@/lib/repositories/settings";
 
 type ContactPageProps = { params: Promise<{ locale: AppLocale }> };
 
-function TelegramIcon({ className }: { className?: string }) {
+const MAP_W = 640;
+const MAP_H = 400;
+
+function InstagramIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <rect x="2" y="2" width="20" height="20" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
     </svg>
   );
 }
-
-function InstagramIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z" />
-    </svg>
-  );
-}
-
-function WhatsAppIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-    </svg>
-  );
-}
-
-type SocialLink = { name: string; href: string; icon: ReactNode; hoverBg: string };
-
-// لینک‌ها را اینجا ویرایش کنید
-const SOCIAL_LINKS: SocialLink[] = [
-  { name: "Telegram", href: "https://t.me/", hoverBg: "hover:bg-[#229ED9]", icon: <TelegramIcon className="size-5" /> },
-  { name: "Instagram", href: "https://instagram.com/", hoverBg: "hover:bg-[#E4405F]", icon: <InstagramIcon className="size-5" /> },
-  { name: "WhatsApp", href: "https://wa.me/", hoverBg: "hover:bg-[#25D366]", icon: <WhatsAppIcon className="size-5" /> },
-];
 
 export async function generateMetadata({ params }: ContactPageProps): Promise<Metadata> {
   const { locale } = await params;
@@ -54,128 +38,158 @@ export async function generateMetadata({ params }: ContactPageProps): Promise<Me
 export default async function ContactPage({ params }: ContactPageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const contact = await getTranslations({ locale, namespace: "Contact" });
-  const offices = await getOffices();
+  const t = await getTranslations({ locale, namespace: "Contact" });
+  const [offices, settings] = await Promise.all([getOffices(), getSiteSettings()]);
   const headOffice = offices.find((office) => office.isHeadOffice) ?? offices[0];
+  const phone = headOffice?.phone || settings.phones[0] || "";
+  const email = headOffice?.email || settings.emails[0] || "";
+  const whatsapp = settings.social.whatsapp;
+  const telegram = settings.social.telegram;
+
+  const channels: { key: string; href: string; icon: ReactNode; title: string; value: string; hint: string; external?: boolean }[] = [
+    ...(phone ? [{ key: "phone", href: `tel:${phone}`, icon: <PhoneCall className="size-5" aria-hidden="true" />, title: t("call"), value: phone, hint: t("callHint") }] : []),
+    ...(email ? [{ key: "email", href: `mailto:${email}`, icon: <Mail className="size-5" aria-hidden="true" />, title: t("email"), value: email, hint: t("emailHint") }] : []),
+    ...(whatsapp ? [{ key: "whatsapp", href: whatsapp, icon: <MessageCircle className="size-5" aria-hidden="true" />, title: t("whatsapp"), value: "WhatsApp", hint: t("whatsappHint"), external: true }] : []),
+    ...(telegram ? [{ key: "telegram", href: telegram, icon: <Send className="size-5" aria-hidden="true" />, title: t("telegram"), value: "Telegram", hint: t("telegramHint"), external: true }] : []),
+  ];
+
+  const socials = [
+    { key: "linkedin", href: settings.social.linkedin, label: "LinkedIn", icon: <LinkedinIcon className="size-4" /> },
+    { key: "instagram", href: settings.social.instagram, label: "Instagram", icon: <InstagramIcon className="size-4" /> },
+    { key: "telegram", href: settings.social.telegram, label: "Telegram", icon: <Send className="size-4" aria-hidden="true" /> },
+    { key: "whatsapp", href: settings.social.whatsapp, label: "WhatsApp", icon: <MessageCircle className="size-4" aria-hidden="true" /> },
+  ].filter((item) => Boolean(item.href));
+
+  const points = offices.map((office) => lookupCity(office.city.en)).filter((geo): geo is NonNullable<typeof geo> => Boolean(geo));
+  const map = fitDotMap(points, MAP_W, MAP_H, { minLonSpan: 30, minLatSpan: 18, radius: 2.6 });
+  const { px, py } = createProjection(map);
+  const dots = buildDotsPath(map);
 
   return (
     <>
-      <PageHero
-        eyebrow={contact("eyebrow")}
-        title={contact("title")}
-        description={contact("description")}
-        breadcrumbs={[{ href: "/", label: contact("breadcrumbHome") }]}
-        breadcrumbLabel={contact("breadcrumbLabel")}
-      />
+      {/* ── Hero ── */}
+      <section className="contact-hero relative isolate overflow-hidden bg-[#050f21] text-white">
+        <div aria-hidden="true" className="track-hero-grid absolute inset-0" />
+        <div aria-hidden="true" className="track-hero-aura track-hero-aura-one" />
+        <div aria-hidden="true" className="track-hero-aura track-hero-aura-two" />
+        <div className="container-shell relative pb-24 pt-6 sm:pb-28 sm:pt-8">
+          <div className="track-hero-breadcrumbs">
+            <Breadcrumbs items={[{ href: "/", label: t("breadcrumbHome") }, { label: t("title") }]} label={t("breadcrumbLabel")} />
+          </div>
+          <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-end">
+            <div>
+              <span className="hero-badge">
+                <span className="hero-badge-dot" />
+                {t("heroBadge")}
+              </span>
+              <h1 className="mt-5 text-balance text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">{t("title")}</h1>
+              <p className="mt-4 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">{t("description")}</p>
+            </div>
+            <p className="flex items-center gap-2 text-xs font-bold text-slate-400 lg:justify-end">
+              <Sparkles className="size-4 text-[#9ec9ff]" aria-hidden="true" />
+              {t("formDescription")}
+            </p>
+          </div>
+        </div>
+      </section>
 
-      <section className="py-16 sm:py-20">
-        <div className="container-shell grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+      {/* ── Quick channels (overlapping the hero) ── */}
+      <section className="relative z-10 -mt-14 sm:-mt-16">
+        <div className="container-shell">
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {channels.map((channel) => (
+              <li key={channel.key}>
+                <a href={channel.href} target={channel.external ? "_blank" : undefined} rel={channel.external ? "noreferrer" : undefined} className="contact-channel group focus-ring">
+                  <span className="contact-channel-icon">{channel.icon}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">{channel.title}</span>
+                    <span className="mt-0.5 block truncate text-sm font-extrabold text-brand-navy" dir="ltr">{channel.value}</span>
+                    <span className="mt-0.5 block text-[11px] text-muted">{channel.hint}</span>
+                  </span>
+                  <ArrowUpRight className="size-4 shrink-0 text-slate-300 transition group-hover:rotate-45 group-hover:text-brand-red" aria-hidden="true" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* ── Form + side info ── */}
+      <section className="relative bg-[#f4f7fc] pb-20 pt-10 sm:pb-28 sm:pt-12">
+        <div aria-hidden="true" className="track-results-grid absolute inset-0" />
+        <div className="container-shell relative grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-8">
+          <div className="contact-card">
+            <p className="flex items-center gap-3 text-xs font-extrabold uppercase tracking-[0.22em] text-brand-red">
+              <span aria-hidden="true" className="h-px w-8 bg-brand-red" />
+              {t("formEyebrow")}
+            </p>
+            <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-brand-navy sm:text-3xl">{t("formTitle")}</h2>
+            <p className="mt-2 text-sm leading-7 text-muted">{t("formDescription")}</p>
+            <div className="mt-7">
+              <ContactForm />
+            </div>
+          </div>
+
           <div className="space-y-6">
-            <Card>
-              <CardContent className="space-y-4 p-6">
-                <h2 className="text-lg font-extrabold text-brand-navy">{contact("officeTitle")}</h2>
-                <p className="flex items-start gap-2 text-sm leading-7 text-muted">
-                  <MapPin aria-hidden="true" className="mt-1 size-4 shrink-0 text-brand-red" />
-                  {getLocalizedText(headOffice.address, locale)}
-                </p>
-                <p className="flex items-center gap-2 text-sm text-muted">
-                  <Phone aria-hidden="true" className="size-4 text-brand-red" />
-                  <a href={`tel:${headOffice.phone}`} className="hover:text-brand-navy">
-                    {headOffice.phone}
-                  </a>
-                </p>
-                <p className="flex items-center gap-2 text-sm text-muted">
-                  <Mail aria-hidden="true" className="size-4 text-brand-red" />
-                  <a href={`mailto:${headOffice.email}`} className="hover:text-brand-navy">
-                    {headOffice.email}
-                  </a>
-                </p>
-                <p className="flex items-center gap-2 text-sm text-muted">
-                  <Clock aria-hidden="true" className="size-4 text-brand-red" />
-                  {getLocalizedText(headOffice.hours, locale)}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Map placeholder با طراحی بهتر */}
-            <div
-              aria-label={contact("mapLabel")}
-              className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-brand-navy-soft via-surface to-white shadow-sm"
-            >
-              <div className="relative aspect-[16/10] bg-[radial-gradient(circle_at_40%_30%,rgba(18,57,119,0.06),transparent_65%)]">
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <svg
-                    aria-hidden="true"
-                    className="size-14 text-brand-navy/20"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                  <p className="mt-3 text-sm font-bold text-brand-navy">
-                    {contact("mapLabel")}
-                  </p>
-                  <p className="mt-1 text-xs text-muted">
-                    {contact("mapPlaceholder")}
-                  </p>
-                </div>
-                
-                {/* Pin decorativo */}
-                <div
-                  aria-hidden="true"
-                  className="absolute left-1/2 top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full bg-brand-red shadow-lg"
-                />
-                <div
-                  aria-hidden="true"
-                  className="absolute left-1/2 top-1/2 size-8 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full bg-brand-red/30"
-                />
+            <div className="contact-card">
+              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("officesTitle")}</h2>
+              <div className="mt-4">
+                <ContactOffices offices={offices} locale={locale} headOfficeLabel={t("headOfficeBadge")} localTimeLabel={t("localTime")} />
               </div>
             </div>
 
-            <Card>
-              <CardContent className="p-6">
-                <h2 className="text-lg font-extrabold text-brand-navy">{contact("socialTitle")}</h2>
-                <p className="mt-2 text-sm leading-7 text-muted">{contact("socialDescription")}</p>
-                <div className="mt-5 flex items-center gap-3">
-                  {SOCIAL_LINKS.map((social) => (
-                    <a
-                      key={social.name}
-                      href={social.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={social.name}
-                      title={social.name}
-                      className={`grid size-12 place-items-center rounded-2xl border border-slate-200/80 bg-white text-brand-navy shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-transparent hover:text-white hover:shadow-[0_12px_26px_-14px_rgba(18,57,119,0.55)] ${social.hoverBg}`}
-                    >
-                      {social.icon}
-                    </a>
-                  ))}
+            {points.length ? (
+              <div className="contact-map relative overflow-hidden rounded-[1.5rem] text-white" aria-label={t("mapTitle")} role="img">
+                <div aria-hidden="true" className="track-map-grid absolute inset-0" />
+                <div className="relative px-4 pt-4">
+                  <span className="markets-pill markets-pill-muted">{t("mapTitle")}</span>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardContent className="p-6 sm:p-8">
-              <h2 className="text-xl font-extrabold text-brand-navy">{contact("formTitle")}</h2>
-              <p className="mt-2 text-sm leading-7 text-muted">{contact("formDescription")}</p>
-              <div className="mt-6">
-                <ContactForm />
+                <svg className="relative block w-full" viewBox={`0 0 ${MAP_W} ${MAP_H}`} aria-hidden="true">
+                  <path className="track-map-dots" d={dots} />
+                  {offices.map((office) => {
+                    const geo = lookupCity(office.city.en);
+                    if (!geo) return null;
+                    return (
+                      <g key={office.id} transform={`translate(${px(geo.lon).toFixed(1)} ${py(geo.lat).toFixed(1)})`} className={office.isHeadOffice ? "track-node track-node-origin" : "track-node"}>
+                        {office.isHeadOffice ? <circle className="track-node-ring" r="11" /> : null}
+                        <circle className="track-node-halo" r="11" />
+                        <circle className="track-node-core" r={office.isHeadOffice ? 5.5 : 4.5} />
+                        <text className="track-node-label" y="-18" textAnchor="middle">{getLocalizedText(office.city, locale)}</text>
+                      </g>
+                    );
+                  })}
+                </svg>
               </div>
-            </CardContent>
-          </Card>
+            ) : null}
+
+            <div className="contact-card">
+              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{t("faqTitle")}</h2>
+              <ul className="mt-3 divide-y divide-slate-100">
+                {(["1", "2", "3"] as const).map((n) => (
+                  <li key={n} className="py-3 first:pt-0 last:pb-0">
+                    <p className="text-sm font-extrabold text-brand-navy">{t(`faq.q${n}`)}</p>
+                    <p className="mt-1 text-xs leading-6 text-muted">{t(`faq.a${n}`)}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {socials.length ? (
+              <div className="contact-card flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-sm font-extrabold text-brand-navy">{t("socialTitle")}</h2>
+                  <p className="mt-0.5 text-xs text-muted">{t("socialDescription")}</p>
+                </div>
+                <ul className="flex gap-2">
+                  {socials.map((item) => (
+                    <li key={item.key}>
+                      <a href={item.href} target="_blank" rel="noreferrer" aria-label={item.label} className="contact-social focus-ring">{item.icon}</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
     </>

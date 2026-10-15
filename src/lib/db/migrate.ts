@@ -7,7 +7,7 @@ const MIGRATIONS_DIR = path.join(process.cwd(), "migrations");
 const MIGRATIONS_TABLE = "migrations";
 
 const DATABASE_URL =
-  process.env.DATABASE_URL ?? "mysql://root:Mehdi123@localhost:3306/taymaz";
+  process.env.DATABASE_URL ?? "";
 
 async function connect(): Promise<mysql.Connection> {
   return mysql.createConnection({ uri: DATABASE_URL, multipleStatements: true });

@@ -6,13 +6,9 @@ import { ProductOrderGuard } from "@/components/products/product-order-guard";
 import { PageHero } from "@/components/shared/page-hero";
 import type { AppLocale } from "@/i18n/routing";
 import { getLocalizedText } from "@/lib/i18n/get-localized-text";
-import { getProductBySlug, getProductSlugs } from "@/lib/repositories/products";
+import { getProductBySlug } from "@/lib/repositories/products";
 
 type ProductOrderPageProps = { params: Promise<{ locale: AppLocale; slug: string }> };
-
-export async function generateStaticParams() {
-  return (await getProductSlugs()).map((slug) => ({ slug }));
-}
 
 export async function generateMetadata({ params }: ProductOrderPageProps): Promise<Metadata> {
   const { locale, slug } = await params;

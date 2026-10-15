@@ -13,15 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import type { AppLocale } from "@/i18n/routing";
 import { getLocalizedText } from "@/lib/i18n/get-localized-text";
-import { getPortfolioBySlug, getPortfolioSlugs, getRelatedPortfolio } from "@/lib/repositories/portfolio";
+import { getPortfolioBySlug, getRelatedPortfolio } from "@/lib/repositories/portfolio";
 import { getServiceBySlug } from "@/lib/repositories/services";
 import { cn } from "@/lib/utils";
 
 type PortfolioDetailPageProps = { params: Promise<{ locale: AppLocale; slug: string }> };
-
-export async function generateStaticParams() {
-  return (await getPortfolioSlugs()).map((slug) => ({ slug }));
-}
 
 export async function generateMetadata({ params }: PortfolioDetailPageProps): Promise<Metadata> {
   const { locale, slug } = await params;

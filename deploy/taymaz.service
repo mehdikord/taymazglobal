@@ -1,0 +1,29 @@
+[Unit]
+Description=Taymaz Global website (Next.js)
+After=network.target mysql.service mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# کاربر و مسیر پروژه را مطابق سرور خود تغییر دهید
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/taymaz
+# متغیرهای محیطی از فایل .env پروژه خوانده می‌شوند (DATABASE_URL, JWT_SECRET, ...)
+EnvironmentFile=/var/www/taymaz/.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=127.0.0.1
+# مسیر node را با `which node` روی سرور چک کنید
+ExecStart=/usr/bin/npm run start -- --port 3000 --hostname 127.0.0.1
+Restart=always
+RestartSec=5
+# محدودیت‌های امنیتی سبک
+NoNewPrivileges=true
+PrivateTmp=true
+# لاگ‌ها با journalctl -u taymaz -f دیده می‌شوند
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

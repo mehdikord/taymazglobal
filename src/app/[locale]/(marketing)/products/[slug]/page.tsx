@@ -11,13 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import type { AppLocale } from "@/i18n/routing";
 import { formatProductPrice } from "@/lib/formatters/price";
 import { getLocalizedText } from "@/lib/i18n/get-localized-text";
-import { getProductBySlug, getProductSlugs, getRelatedProducts } from "@/lib/repositories/products";
+import { getProductBySlug, getRelatedProducts } from "@/lib/repositories/products";
 
 type ProductDetailPageProps = { params: Promise<{ locale: AppLocale; slug: string }> };
-
-export async function generateStaticParams() {
-  return (await getProductSlugs()).map((slug) => ({ slug }));
-}
 
 export async function generateMetadata({ params }: ProductDetailPageProps): Promise<Metadata> {
   const { locale, slug } = await params;

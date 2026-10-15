@@ -13,14 +13,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
 import type { AppLocale } from "@/i18n/routing";
 import { getLocalizedText } from "@/lib/i18n/get-localized-text";
-import { getServiceBySlug, getServiceSlugs } from "@/lib/repositories/services";
+import { getServiceBySlug } from "@/lib/repositories/services";
 import { getServiceIcon } from "@/lib/service-icons";
 
 type ServiceDetailPageProps = { params: Promise<{ locale: AppLocale; slug: string }> };
-
-export async function generateStaticParams() {
-  return (await getServiceSlugs()).map((slug) => ({ slug }));
-}
 
 export async function generateMetadata({ params }: ServiceDetailPageProps): Promise<Metadata> {
   const { locale, slug } = await params;

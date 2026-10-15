@@ -7,6 +7,18 @@ import { getPortfolioSlugs } from "@/lib/repositories/portfolio";
 
 type Sitemap = MetadataRoute.Sitemap;
 
+/** Always generated at request time so the build never needs the database and the sitemap stays fresh. */
+export const dynamic = "force-dynamic";
+
+async function safeSlugs(loader: () => Promise<string[]>): Promise<string[]> {
+  try {
+    return await loader();
+  } catch (error) {
+    console.error("[sitemap] failed to load slugs", error);
+    return [];
+  }
+}
+
 export default async function sitemap(): Promise<Sitemap> {
   const locales = routing.locales;
   const now = new Date();
@@ -27,9 +39,9 @@ export default async function sitemap(): Promise<Sitemap> {
 
   // Dynamic slugs — از پایگاه داده
   const [serviceSlugs, productSlugs, portfolioSlugs] = await Promise.all([
-    getServiceSlugs(),
-    getProductSlugs(),
-    getPortfolioSlugs(),
+    safeSlugs(getServiceSlugs),
+    safeSlugs(getProductSlugs),
+    safeSlugs(getPortfolioSlugs),
   ]);
 
   const urls: Sitemap = [];

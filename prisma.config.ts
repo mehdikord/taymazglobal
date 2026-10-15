@@ -7,6 +7,6 @@ if (typeof process.loadEnvFile === "function") {
 export default defineConfig({
   schema: "prisma/schema.prisma",
   datasource: {
-    url: process.env.DATABASE_URL ?? "mysql://root:Mehdi123@localhost:3306/taymaz",
+    url: process.env.DATABASE_URL ?? "",
   },
 });

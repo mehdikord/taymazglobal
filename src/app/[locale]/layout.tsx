@@ -31,9 +31,12 @@ type LocaleLayoutProps = Readonly<{
   params: Promise<{ locale: string }>;
 }>;
 
-export function generateStaticParams() {
-  return routing.locales.map((locale) => ({ locale }));
-}
+/**
+ * The whole localized tree is rendered on demand: every page reads live data from the database,
+ * and `next build` must never need a database connection (production builds run on the server
+ * before the service is started).
+ */
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: Omit<LocaleLayoutProps, "children">): Promise<Metadata> {
   const { locale } = await params;
