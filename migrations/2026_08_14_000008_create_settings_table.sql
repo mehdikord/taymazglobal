@@ -1,0 +1,19 @@
+-- ============================================================
+-- 000008: تنظیمات سایت (settings)
+-- ============================================================
+
+-- UP
+
+CREATE TABLE settings (
+    id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `key`      VARCHAR(255)    NOT NULL,
+    value      JSON            NULL,
+    created_at TIMESTAMP NULL DEFAULT NULL,
+    updated_at TIMESTAMP NULL DEFAULT NULL,
+    PRIMARY KEY (id),
+    UNIQUE INDEX settings_key_unique (`key`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- DOWN
+
+DROP TABLE IF EXISTS settings;

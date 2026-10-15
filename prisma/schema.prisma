@@ -1,0 +1,790 @@
+// Taymaz Global — Prisma Schema (MySQL)
+// همگام با docs/database.schema
+// منبع حقیقت ساخت جدول‌ها: فایل‌های migration در /migrations
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ============================================================
+// Enums
+// ============================================================
+
+enum Locale {
+  fa
+  en
+  tr
+  ru
+}
+
+enum ProductType {
+  physical
+  service
+}
+
+enum PriceType {
+  fixed
+  inquiry
+  range
+}
+
+enum Currency {
+  USD
+  EUR
+  TRY
+}
+
+enum MediaType {
+  image
+  video
+}
+
+enum UploadedFileType {
+  image
+  video
+  pdf
+  other
+}
+
+enum TeamDepartment {
+  leadership
+  operations
+  customs
+  sales
+  logistics
+}
+
+enum OrderStatus {
+  pending_approval
+  preparing
+  in_transit
+  completed
+  cancelled
+}
+
+enum ContactMessageType {
+  contact
+  suggestion
+  complaint
+  other
+}
+
+enum LeadStatus {
+  new
+  in_review
+  contacted
+  closed
+}
+
+// ============================================================
+// Countries
+// ============================================================
+
+model Country {
+  id          BigInt                 @id @default(autoincrement())
+  code        String                 @unique @db.VarChar(2)
+  isActive    Boolean                @default(true) @map("is_active")
+  sortOrder   Int                    @default(0) @map("sort_order")
+  createdAt   DateTime?              @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime?              @map("updated_at") @db.Timestamp(0)
+  translations CountryTranslation[]
+  users        User[]
+  services     ServiceCountry[]
+  portfolioItems PortfolioItem[]
+  offices      Office[]
+
+  @@map("countries")
+}
+
+model CountryTranslation {
+  id        BigInt   @id @default(autoincrement())
+  countryId BigInt   @map("country_id")
+  locale    Locale
+  name      String   @db.VarChar(255)
+  region    String?  @db.VarChar(255)
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp(0)
+  country   Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+
+  @@unique([countryId, locale])
+  @@index([locale])
+  @@map("country_translations")
+}
+
+// ============================================================
+// Tags
+// ============================================================
+
+model Tag {
+  id        BigInt     @id @default(autoincrement())
+  slug      String     @unique @db.VarChar(255)
+  isActive  Boolean    @default(true) @map("is_active")
+  createdAt DateTime?  @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime?  @map("updated_at") @db.Timestamp(0)
+  translations TagTranslation[]
+  services     ServiceTag[]
+  products     ProductTag[]
+
+  @@map("tags")
+}
+
+model TagTranslation {
+  id        BigInt   @id @default(autoincrement())
+  tagId     BigInt   @map("tag_id")
+  locale    Locale
+  name      String   @db.VarChar(255)
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp(0)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, locale])
+  @@index([locale])
+  @@map("tag_translations")
+}
+
+// ============================================================
+// Settings (تنظیمات سایت) — مدل Setting در بخش فوندیشن تعریف شده
+// ============================================================
+
+// ============================================================
+// Admins (مدیران سیستم)
+// ============================================================
+
+model Admin {
+  id            BigInt   @id @default(autoincrement())
+  name          String   @db.VarChar(255)
+  phone         String   @unique @db.VarChar(32)
+  email         String   @unique @db.VarChar(255)
+  password      String   @db.VarChar(255)
+  isActive      Boolean  @default(true) @map("is_active")
+  rememberToken String?  @map("remember_token") @db.VarChar(100)
+  createdAt     DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt     DateTime? @map("updated_at") @db.Timestamp(0)
+  contactMessages  ContactMessage[]
+  serviceInquiries ServiceInquiry[]
+  orderLogs        OrderLog[]
+  uploadedMedia    MediaItem[]
+
+  @@map("admins")
+}
+
+// ============================================================
+// Media Library (کتابخانه رسانه)
+// ============================================================
+
+model MediaFolder {
+  id        BigInt     @id @default(autoincrement())
+  name      String     @db.VarChar(255)
+  slug      String     @unique @db.VarChar(255)
+  sortOrder Int        @default(0) @map("sort_order")
+  createdAt DateTime?  @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime?  @map("updated_at") @db.Timestamp(0)
+  items     MediaItem[]
+
+  @@index([sortOrder])
+  @@map("media_folders")
+}
+
+model MediaItem {
+  id             BigInt           @id @default(autoincrement())
+  folderId       BigInt?          @map("folder_id")
+  type           UploadedFileType @default(image)
+  originalName   String           @map("original_name") @db.VarChar(255)
+  filename       String           @map("filename") @db.VarChar(255)
+  path           String           @unique @map("path") @db.VarChar(255)
+  mimeType       String           @map("mime_type") @db.VarChar(100)
+  sizeBytes      Int              @map("size_bytes")
+  altText        String?          @map("alt_text") @db.VarChar(255)
+  uploadedById   BigInt?          @map("uploaded_by_id")
+  createdAt      DateTime?        @map("created_at") @db.Timestamp(0)
+  updatedAt      DateTime?        @map("updated_at") @db.Timestamp(0)
+  folder         MediaFolder?     @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  uploadedBy     Admin?           @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([folderId])
+  @@index([type])
+  @@index([uploadedById])
+  @@index([createdAt])
+  @@map("media_items")
+}
+
+// ============================================================
+// Users (کاربران / مشتریان)
+// ============================================================
+
+model User {
+  id              BigInt    @id @default(autoincrement())
+  name            String    @db.VarChar(255)
+  email           String    @unique @db.VarChar(255)
+  phone           String?   @unique @db.VarChar(32)
+  password        String    @db.VarChar(255)
+  company         String?   @db.VarChar(255)
+  countryId       BigInt?   @map("country_id")
+  isActive        Boolean   @default(true) @map("is_active")
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamp(0)
+  rememberToken   String?   @map("remember_token") @db.VarChar(100)
+  createdAt       DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime? @map("updated_at") @db.Timestamp(0)
+  country         Country?  @relation(fields: [countryId], references: [id], onDelete: SetNull)
+  orders          Order[]
+  sessions        Session[]
+
+  @@map("users")
+}
+
+model PasswordResetToken {
+  id        BigInt   @id @default(autoincrement())
+  email     String   @unique @db.VarChar(255)
+  token     String   @db.VarChar(255)
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp(0)
+
+  @@map("password_reset_tokens")
+}
+
+model Session {
+  id           BigInt   @id @default(autoincrement())
+  sessionId    String   @unique @map("session_id") @db.VarChar(255)
+  userId       BigInt?  @map("user_id")
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  userAgent    String?  @map("user_agent") @db.Text
+  payload      String   @db.LongText
+  lastActivity Int      @map("last_activity")
+  createdAt    DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt    DateTime? @map("updated_at") @db.Timestamp(0)
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([lastActivity])
+  @@map("sessions")
+}
+
+// ============================================================
+// Settings
+// ============================================================
+
+model Setting {
+  id        BigInt   @id @default(autoincrement())
+  key       String   @unique @map("setting_key") @db.VarChar(255)
+  value     Json?
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp(0)
+
+  @@map("settings")
+}
+
+// ============================================================
+// Services (خدمات)
+// ============================================================
+
+model Service {
+  id          BigInt               @id @default(autoincrement())
+  slug        String               @unique @db.VarChar(255)
+  icon        String               @db.VarChar(50)
+  isFeatured  Boolean              @default(false) @map("is_featured")
+  isActive    Boolean              @default(true) @map("is_active")
+  sortOrder   Int                  @default(0) @map("sort_order")
+  createdAt   DateTime?            @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime?            @map("updated_at") @db.Timestamp(0)
+  translations ServiceTranslation[]
+  countries    ServiceCountry[]
+  tags         ServiceTag[]
+  portfolioItems PortfolioItem[]
+  inquiries    ServiceInquiry[]
+
+  @@map("services")
+}
+
+model ServiceTranslation {
+  id          BigInt  @id @default(autoincrement())
+  serviceId   BigInt  @map("service_id")
+  locale      Locale
+  title       String  @db.VarChar(255)
+  summary     String? @db.Text
+  description String? @db.Text
+  benefits    Json?
+  steps       Json?
+  faq         Json?
+  createdAt   DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime? @map("updated_at") @db.Timestamp(0)
+  service     Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, locale])
+  @@index([locale])
+  @@map("service_translations")
+}
+
+model ServiceCountry {
+  serviceId BigInt @map("service_id")
+  countryId BigInt @map("country_id")
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp(0)
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  country   Country @relation(fields: [countryId], references: [id], onDelete: Cascade)
+
+  @@id([serviceId, countryId])
+  @@index([countryId])
+  @@map("service_country")
+}
+
+model ServiceTag {
+  serviceId BigInt @map("service_id")
+  tagId     BigInt @map("tag_id")
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp(0)
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([serviceId, tagId])
+  @@index([tagId])
+  @@map("service_tag")
+}
+
+// ============================================================
+// Product Categories
+// ============================================================
+
+model ProductCategory {
+  id        BigInt  @id @default(autoincrement())
+  slug      String  @unique @db.VarChar(255)
+  gradient  String? @db.VarChar(255)
+  accent    String? @db.VarChar(255)
+  isActive  Boolean @default(true) @map("is_active")
+  sortOrder Int     @default(0) @map("sort_order")
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp(0)
+  translations ProductCategoryTranslation[]
+  products     Product[]
+
+  @@map("product_categories")
+}
+
+model ProductCategoryTranslation {
+  id          BigInt  @id @default(autoincrement())
+  categoryId  BigInt  @map("category_id")
+  locale      Locale
+  title       String  @db.VarChar(255)
+  description String? @db.Text
+  createdAt   DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime? @map("updated_at") @db.Timestamp(0)
+  category    ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, locale])
+  @@index([locale])
+  @@map("product_category_translations")
+}
+
+// ============================================================
+// Products
+// ============================================================
+
+model Product {
+  id          BigInt     @id @default(autoincrement())
+  slug        String     @unique @db.VarChar(255)
+  categoryId  BigInt     @map("category_id")
+  type        ProductType
+  priceType   PriceType  @default(inquiry) @map("price_type")
+  price       Decimal?   @db.Decimal(14, 2)
+  priceMax    Decimal?   @map("price_max") @db.Decimal(14, 2)
+  currency    Currency?
+  isFeatured  Boolean    @default(false) @map("is_featured")
+  isActive    Boolean    @default(true) @map("is_active")
+  sortOrder   Int        @default(0) @map("sort_order")
+  createdAt   DateTime?  @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime?  @map("updated_at") @db.Timestamp(0)
+  category    ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  translations ProductTranslation[]
+  specs         ProductSpec[]
+  media         ProductMedia[]
+  tags          ProductTag[]
+  orders        Order[]
+
+  @@index([categoryId])
+  @@index([type])
+  @@index([priceType])
+  @@map("products")
+}
+
+model ProductTranslation {
+  id          BigInt  @id @default(autoincrement())
+  productId   BigInt  @map("product_id")
+  locale      Locale
+  title       String  @db.VarChar(255)
+  summary     String? @db.Text
+  description String? @db.Text
+  createdAt   DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime? @map("updated_at") @db.Timestamp(0)
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, locale])
+  @@index([locale])
+  @@map("product_translations")
+}
+
+model ProductSpec {
+  id        BigInt  @id @default(autoincrement())
+  productId BigInt  @map("product_id")
+  sortOrder Int     @default(0) @map("sort_order")
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp(0)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  translations ProductSpecTranslation[]
+
+  @@index([productId])
+  @@map("product_specs")
+}
+
+model ProductSpecTranslation {
+  id        BigInt  @id @default(autoincrement())
+  specId    BigInt  @map("spec_id")
+  locale    Locale
+  label     String  @db.VarChar(255)
+  value     String? @db.Text
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp(0)
+  spec      ProductSpec @relation(fields: [specId], references: [id], onDelete: Cascade)
+
+  @@unique([specId, locale])
+  @@index([locale])
+  @@map("product_spec_translations")
+}
+
+model ProductMedia {
+  id        BigInt    @id @default(autoincrement())
+  productId BigInt    @map("product_id")
+  type      MediaType @default(image)
+  path      String?   @db.VarChar(255)
+  sortOrder Int       @default(0) @map("sort_order")
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp(0)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  translations ProductMediaTranslation[]
+
+  @@index([productId])
+  @@map("product_media")
+}
+
+model ProductMediaTranslation {
+  id        BigInt  @id @default(autoincrement())
+  mediaId   BigInt  @map("media_id")
+  locale    Locale
+  alt       String? @db.VarChar(255)
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp(0)
+  media     ProductMedia @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@unique([mediaId, locale])
+  @@index([locale])
+  @@map("product_media_translations")
+}
+
+model ProductTag {
+  productId BigInt @map("product_id")
+  tagId     BigInt @map("tag_id")
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp(0)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([productId, tagId])
+  @@index([tagId])
+  @@map("product_tag")
+}
+
+// ============================================================
+// Portfolio (نمونه‌کارها)
+// ============================================================
+
+model PortfolioItem {
+  id          BigInt  @id @default(autoincrement())
+  slug        String  @unique @db.VarChar(255)
+  serviceId   BigInt  @map("service_id")
+  countryId   BigInt? @map("country_id")
+  year        Int     @db.SmallInt()
+  gradient    String? @db.VarChar(255)
+  isFeatured  Boolean @default(false) @map("is_featured")
+  isActive    Boolean @default(true) @map("is_active")
+  sortOrder   Int     @default(0) @map("sort_order")
+  createdAt   DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime? @map("updated_at") @db.Timestamp(0)
+  service     Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  country     Country? @relation(fields: [countryId], references: [id], onDelete: SetNull)
+  translations PortfolioTranslation[]
+  metrics      PortfolioMetric[]
+  galleryItems PortfolioGalleryItem[]
+
+  @@index([serviceId])
+  @@index([countryId])
+  @@index([year])
+  @@map("portfolio_items")
+}
+
+model PortfolioTranslation {
+  id              BigInt  @id @default(autoincrement())
+  portfolioItemId BigInt  @map("portfolio_item_id")
+  locale          Locale
+  title           String  @db.VarChar(255)
+  summary         String? @db.Text
+  challenge       String? @db.Text
+  solution        String? @db.Text
+  outcome         String? @db.Text
+  route           String? @db.VarChar(255)
+  createdAt       DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime? @map("updated_at") @db.Timestamp(0)
+  portfolioItem   PortfolioItem @relation(fields: [portfolioItemId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioItemId, locale])
+  @@index([locale])
+  @@map("portfolio_translations")
+}
+
+model PortfolioMetric {
+  id              BigInt  @id @default(autoincrement())
+  portfolioItemId BigInt  @map("portfolio_item_id")
+  value           String  @db.VarChar(50)
+  sortOrder       Int     @default(0) @map("sort_order")
+  createdAt       DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime? @map("updated_at") @db.Timestamp(0)
+  portfolioItem   PortfolioItem @relation(fields: [portfolioItemId], references: [id], onDelete: Cascade)
+  translations    PortfolioMetricTranslation[]
+
+  @@index([portfolioItemId])
+  @@map("portfolio_metrics")
+}
+
+model PortfolioMetricTranslation {
+  id        BigInt  @id @default(autoincrement())
+  metricId  BigInt  @map("metric_id")
+  locale    Locale
+  label     String  @db.VarChar(255)
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp(0)
+  metric    PortfolioMetric @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+  @@unique([metricId, locale])
+  @@index([locale])
+  @@map("portfolio_metric_translations")
+}
+
+model PortfolioGalleryItem {
+  id              BigInt  @id @default(autoincrement())
+  portfolioItemId BigInt  @map("portfolio_item_id")
+  path            String? @db.VarChar(255)
+  sortOrder       Int     @default(0) @map("sort_order")
+  createdAt       DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime? @map("updated_at") @db.Timestamp(0)
+  portfolioItem   PortfolioItem @relation(fields: [portfolioItemId], references: [id], onDelete: Cascade)
+  translations    PortfolioGalleryItemTranslation[]
+
+  @@index([portfolioItemId])
+  @@map("portfolio_gallery_items")
+}
+
+model PortfolioGalleryItemTranslation {
+  id            BigInt  @id @default(autoincrement())
+  galleryItemId BigInt  @map("gallery_item_id")
+  locale        Locale
+  alt           String? @db.VarChar(255)
+  createdAt     DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt     DateTime? @map("updated_at") @db.Timestamp(0)
+  galleryItem   PortfolioGalleryItem @relation(fields: [galleryItemId], references: [id], onDelete: Cascade)
+
+  @@unique([galleryItemId, locale])
+  @@index([locale])
+  @@map("portfolio_gallery_item_translations")
+}
+
+// ============================================================
+// Team Members (اعضای تیم)
+// ============================================================
+
+model TeamMember {
+  id          BigInt         @id @default(autoincrement())
+  department  TeamDepartment
+  imagePath   String?        @map("image_path") @db.VarChar(255)
+  linkedinUrl String?        @map("linkedin_url") @db.VarChar(255)
+  accent      String?        @db.VarChar(255)
+  sortOrder   Int            @default(0) @map("sort_order")
+  isActive    Boolean        @default(true) @map("is_active")
+  createdAt   DateTime?      @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime?      @map("updated_at") @db.Timestamp(0)
+  translations TeamMemberTranslation[]
+
+  @@index([department])
+  @@map("team_members")
+}
+
+model TeamMemberTranslation {
+  id           BigInt  @id @default(autoincrement())
+  teamMemberId BigInt  @map("team_member_id")
+  locale       Locale
+  name         String  @db.VarChar(255)
+  role         String  @db.VarChar(255)
+  bio          String? @db.Text
+  createdAt    DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt    DateTime? @map("updated_at") @db.Timestamp(0)
+  teamMember   TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([teamMemberId, locale])
+  @@index([locale])
+  @@map("team_member_translations")
+}
+
+// ============================================================
+// Offices (دفاتر)
+// ============================================================
+
+model Office {
+  id           BigInt  @id @default(autoincrement())
+  countryId    BigInt? @map("country_id")
+  phone        String  @db.VarChar(32)
+  email        String  @db.VarChar(255)
+  isHeadOffice Boolean @default(false) @map("is_head_office")
+  isActive     Boolean @default(true) @map("is_active")
+  sortOrder    Int     @default(0) @map("sort_order")
+  createdAt    DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt    DateTime? @map("updated_at") @db.Timestamp(0)
+  country      Country? @relation(fields: [countryId], references: [id], onDelete: SetNull)
+  translations OfficeTranslation[]
+
+  @@index([countryId])
+  @@map("offices")
+}
+
+model OfficeTranslation {
+  id        BigInt  @id @default(autoincrement())
+  officeId  BigInt  @map("office_id")
+  locale    Locale
+  city      String  @db.VarChar(255)
+  address   String? @db.Text
+  hours     String? @db.VarChar(255)
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp(0)
+  office    Office @relation(fields: [officeId], references: [id], onDelete: Cascade)
+
+  @@unique([officeId, locale])
+  @@index([locale])
+  @@map("office_translations")
+}
+
+// ============================================================
+// Contact Messages (پیام‌های تماس)
+// ============================================================
+
+model ContactMessage {
+  id              BigInt  @id @default(autoincrement())
+  name            String  @db.VarChar(255)
+  email           String? @db.VarChar(255)
+  phone           String? @db.VarChar(32)
+  subject         String  @db.VarChar(255)
+  message         String  @db.Text
+  type            ContactMessageType @default(contact)
+  status          LeadStatus @default(new)
+  assignedAdminId BigInt? @map("assigned_admin_id")
+  ipAddress       String? @map("ip_address") @db.VarChar(45)
+  userAgent       String? @map("user_agent") @db.VarChar(255)
+  privacyAccepted Boolean @default(false) @map("privacy_accepted")
+  createdAt       DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime? @map("updated_at") @db.Timestamp(0)
+  assignedAdmin   Admin? @relation(fields: [assignedAdminId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([type])
+  @@index([assignedAdminId])
+  @@map("contact_messages")
+}
+
+// ============================================================
+// Service Inquiries (درخواست مشاوره خدمت)
+// ============================================================
+
+model ServiceInquiry {
+  id              BigInt  @id @default(autoincrement())
+  serviceId       BigInt? @map("service_id")
+  name            String  @db.VarChar(255)
+  phone           String  @db.VarChar(32)
+  email           String? @db.VarChar(255)
+  company         String? @db.VarChar(255)
+  country         String? @db.VarChar(255)
+  message         String? @db.Text
+  status          LeadStatus @default(new)
+  assignedAdminId BigInt? @map("assigned_admin_id")
+  ipAddress       String? @map("ip_address") @db.VarChar(45)
+  userAgent       String? @map("user_agent") @db.VarChar(255)
+  privacyAccepted Boolean @default(false) @map("privacy_accepted")
+  createdAt       DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime? @map("updated_at") @db.Timestamp(0)
+  service         Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  assignedAdmin   Admin? @relation(fields: [assignedAdminId], references: [id], onDelete: SetNull)
+
+  @@index([serviceId])
+  @@index([status])
+  @@index([assignedAdminId])
+  @@map("service_inquiries")
+}
+
+// ============================================================
+// Orders (سفارش‌ها)
+// ============================================================
+
+model Order {
+  id            BigInt     @id @default(autoincrement())
+  orderNumber   String     @unique @map("order_number") @db.VarChar(32)
+  trackingCode  String?    @unique @map("tracking_code") @db.Char(16)
+  userId        BigInt?    @map("user_id")
+  productId     BigInt     @map("product_id")
+  status        OrderStatus @default(pending_approval)
+  destination   String     @db.VarChar(255)
+  quantity      Int?
+  customerNote  String?    @map("customer_note") @db.Text
+  contactName   String     @map("contact_name") @db.VarChar(255)
+  contactPhone  String     @map("contact_phone") @db.VarChar(32)
+  contactEmail  String?    @map("contact_email") @db.VarChar(255)
+  termsAccepted Boolean    @default(false) @map("terms_accepted")
+  createdAt     DateTime?  @map("created_at") @db.Timestamp(0)
+  updatedAt     DateTime?  @map("updated_at") @db.Timestamp(0)
+  user          User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product       Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+  logs          OrderLog[]
+
+  @@index([userId])
+  @@index([productId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderLog {
+  id        BigInt     @id @default(autoincrement())
+  orderId   BigInt     @map("order_id")
+  status    OrderStatus
+  adminId   BigInt?    @map("admin_id")
+  createdAt DateTime?  @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime?  @map("updated_at") @db.Timestamp(0)
+  order     Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  admin     Admin?     @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  translations OrderLogTranslation[]
+
+  @@index([orderId])
+  @@index([status])
+  @@index([adminId])
+  @@map("order_logs")
+}
+
+model OrderLogTranslation {
+  id          BigInt  @id @default(autoincrement())
+  orderLogId  BigInt  @map("order_log_id")
+  locale      Locale
+  note        String? @db.Text
+  createdAt   DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime? @map("updated_at") @db.Timestamp(0)
+  orderLog    OrderLog @relation(fields: [orderLogId], references: [id], onDelete: Cascade)
+
+  @@unique([orderLogId, locale])
+  @@index([locale])
+  @@map("order_log_translations")
+}
