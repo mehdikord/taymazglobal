@@ -13,7 +13,9 @@
     "db:fresh": "node --import tsx scripts/migrate.ts fresh",
     "db:seed": "node --import tsx scripts/migrate.ts seed",
     "db:test": "node --import tsx scripts/test-db.ts",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "postinstall": "prisma generate",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
@@ -54,5 +56,17 @@
     "tsx": "^4.23.12",
     "typescript": "^5"
   },
-  "packageManager": "pnpm@11.5.1"
+  "packageManager": "npm@11.16.0",
+  "engines": {
+    "node": ">=20.9.0",
+    "npm": ">=10"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "prisma": true,
+    "unrs-resolver": true,
+    "@parcel/watcher": true,
+    "@prisma/engines": true,
+    "@swc/core": true
+  }
 }
